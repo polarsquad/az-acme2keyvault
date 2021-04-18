@@ -1,0 +1,18 @@
+{
+  "bindings": [
+    {
+      "name": "monthly",
+      "type": "timerTrigger",
+      "direction": "in",
+      "schedule": "0 0 0 1 * *",
+      "runOnStartup": true
+    }
+  ],
+  "scriptFile": "../dist/Acme2KeyVault/index.js",
+  "retry": {
+    "strategy": "exponentialBackoff",
+    "maxRetryCount": -1,
+    "minimumInterval": "00:00:30",
+    "maximumInterval": "01:00:00"
+  }
+}
