@@ -1,7 +1,7 @@
 import { AzureFunction, Context } from '@azure/functions'
 import * as acme from 'acme-client';
 import * as forge from 'node-forge';
-import { AzureIdentityCredentialAdapter } from './azAuthWrapper';
+import { AzureIdentityCredentialAdapter } from '@azure/ms-rest-js';
 import { DefaultAzureCredential } from '@azure/identity';
 import { CertificateClient } from '@azure/keyvault-certificates';
 import { DnsManagementClient } from '@azure/arm-dns';

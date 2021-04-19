@@ -51,7 +51,7 @@ The function can be configured with the following environment variables:
   * `ACME_CONTACT_EMAIL`: The contact email address to use when registering a certificate
   * `ACME_DIRECTORY_URL`: The URL of the ACME directory that signs the TLS certificate. With Let's Encrypt, typically either of these would be used:
     * Staging: `https://acme-staging-v02.api.letsencrypt.org/directory`
-    * Production: `'https://acme-v02.api.letsencrypt.org/directory`
+    * Production: `https://acme-v02.api.letsencrypt.org/directory`
 * Certificate settings
   * `CERT_COMMON_NAME`: The domain name to use for the certificate
   * `CERT_ALTERNATIVE_NAMES`: The alternative domain names to use for certificate
