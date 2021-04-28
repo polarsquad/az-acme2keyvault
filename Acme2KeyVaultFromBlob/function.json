@@ -1,0 +1,25 @@
+{
+  "bindings": [
+    {
+      "name": "certRequestTrigger",
+      "type": "blobTrigger",
+      "path": "cert-requests/{certRequest}.json",
+      "connection": "AzureWebJobsStorage",
+      "direction": "in"
+    },
+    {
+      "name": "certRequest",
+      "type": "blob",
+      "path": "cert-requests/{certRequest}.json",
+      "connection": "AzureWebJobsStorage",
+      "direction": "in"
+    }
+  ],
+  "scriptFile": "../dist/Acme2KeyVaultFromBlob/index.js",
+  "retry": {
+    "strategy": "exponentialBackoff",
+    "maxRetryCount": -1,
+    "minimumInterval": "00:00:30",
+    "maximumInterval": "01:00:00"
+  }
+}

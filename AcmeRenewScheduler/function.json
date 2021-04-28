@@ -1,0 +1,17 @@
+{
+  "bindings": [
+    {
+      "name": "weekly",
+      "type": "timerTrigger",
+      "direction": "in",
+      "schedule": "0 0 9 * * 1",
+      "runOnStartup": true
+    },
+    {
+      "name": "starter",
+      "type": "durableClient",
+      "direction": "in"
+    }
+  ],
+  "scriptFile": "../dist/AcmeRenewScheduler/index.js"
+}

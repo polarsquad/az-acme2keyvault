@@ -1,0 +1,10 @@
+{
+  "bindings": [
+    {
+      "name": "context",
+      "type": "activityTrigger",
+      "direction": "in"
+    }
+  ],
+  "scriptFile": "../dist/Acme2KeyVaultActivity/index.js"
+}
