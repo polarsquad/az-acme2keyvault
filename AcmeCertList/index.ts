@@ -2,6 +2,7 @@
 import { DefaultAzureCredential } from '@azure/identity';
 import { BlobServiceClient } from '@azure/storage-blob';
 import { CertificateClient, KeyVaultCertificateWithPolicy } from '@azure/keyvault-certificates';
+import { RestError } from '@azure/core-http';
 import {
     CertRequest,
     AzureOptions,
@@ -24,12 +25,19 @@ const blobServiceClient = new BlobServiceClient(
 const containerClient = blobServiceClient.getContainerClient(certReqContainer);
 
 // Get all the certificate details from Azure Key Vault
-const getCertDetails = async (context: Context, opts: AzureOptions): Promise<KeyVaultCertificateWithPolicy> => {
+const getCertDetails = async (context: Context, opts: AzureOptions): Promise<KeyVaultCertificateWithPolicy | null> => {
     const keyVaultUrl = `https://${opts.keyVaultName}.vault.azure.net`;
     const certClient = new CertificateClient(keyVaultUrl, credential);
 
     context.log.verbose(`Fetching certificate details for "${opts.keyVaultCertName} from KV "${opts.keyVaultName}"`);
-    return certClient.getCertificate(opts.keyVaultCertName);
+    try {
+        return await certClient.getCertificate(opts.keyVaultCertName);
+    } catch (err) {
+        if (err instanceof RestError && err.statusCode === 404) {
+            return null;
+        }
+        throw err;
+    }
 };
 
 // Check if a cert is old enough to need a renewal
@@ -52,7 +60,7 @@ const azureFunc: AzureFunction = async (context: Context): Promise<CertRequest[]
             const certRequest = certRequestFromJson(buffer.toString());
             const certDetails = await getCertDetails(context, certRequest.azure);
 
-            if (isOldEnough(certDetails)) {
+            if (certDetails === null || isOldEnough(certDetails)) {
                 certRequests.push(certRequest);
             } else {
                 context.log.verbose(`No renewal needed for certificate "${certRequest.csr.commonName}"`)
