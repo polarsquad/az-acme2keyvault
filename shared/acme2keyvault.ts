@@ -1,11 +1,10 @@
 import { Logger } from '@azure/functions'
 import * as acme from 'acme-client';
-import * as forge from 'node-forge';
 import { AzureIdentityCredentialAdapter, ServiceClientCredentials } from '@azure/ms-rest-js';
 import { TokenCredential } from '@azure/identity';
-import { CertificateClient } from '@azure/keyvault-certificates';
+import { CertificateClient, CertificatePolicy, ArrayOneOrMore } from '@azure/keyvault-certificates';
 import { DnsManagementClient } from '@azure/arm-dns';
-import { AzureOptions, CertRequest } from './certRequest';
+import { AzureOptions, CertKeyOptions, CertRequest } from './certRequest';
 
 // Convert the ACME authorization detail to validation domain
 // that's compatible with Azure DNS format.
@@ -53,13 +52,11 @@ const azureDnsRemoveChallenge = async (
 
 // Order a certificate using the ACME protocol
 const orderCertificate = async (
-    credential: ServiceClientCredentials,
+    dnsClient: DnsManagementClient,
     logger: Logger,
     certRequest: CertRequest,
-    csr: Buffer
+    csr: string
 ): Promise<string> => {
-    const dnsClient = new DnsManagementClient(credential, certRequest.azure.subscriptionId);
-
     const client = new acme.Client({
         directoryUrl: certRequest.acme.acmeDirectoryUrl,
         accountKey: await acme.forge.createPrivateKey(),
@@ -73,7 +70,10 @@ const orderCertificate = async (
 
     logger.verbose('Place new order');
     const order = await client.createOrder({
-        identifiers: [certRequest.csr.commonName, ...certRequest.csr.altNames].map(
+        identifiers: [
+            certRequest.certKey.commonName,
+            ...(certRequest.certKey.alternativeNames || [])
+        ].map(
             (domain) => ({ type: 'dns', value: domain })
         )
     });
@@ -122,51 +122,68 @@ const orderCertificate = async (
     return await client.getCertificate(order);
 };
 
-// A certificate and private key bundle.
-// Both are in PEM format.
-interface CertificateBundle {
-    privateKey: Buffer,
-    certificate: string
-}
-
-// Store the given certificate to Key Vault in a Key Vault compatible format.
-const storeCertificateToKeyVault = async (
-    credential: TokenCredential,
-    opts: AzureOptions,
-    certBundle: CertificateBundle
-): Promise<void> => {
-    const keyVaultUrl = `https://${opts.keyVaultName}.vault.azure.net`
-    const certClient = new CertificateClient(keyVaultUrl, credential);
-    const buffer = Buffer.from(certificateBundleToString(certBundle));
-    await certClient.importCertificate(
-        opts.keyVaultCertName, buffer,
-        { enabled: true, }
-    );
+const isNonEmptyArray = <T extends unknown>(a: T[]): a is ArrayOneOrMore<T> => {
+    return a.length > 0;
 };
 
-// Convert a certificate bundle to an Azure Key Vault compatible string.
-// Key Vault expects a PKCS#8 format PEM key with the PEM certificate chain concatenated.
-const certificateBundleToString = (certBundle: CertificateBundle): string => {
-    const privateKey = forge.pki.privateKeyFromPem(certBundle.privateKey.toString());
-    const rsaPrivateKey = forge.pki.privateKeyToAsn1(privateKey);
-    const privateKeyInfo = forge.pki.wrapRsaPrivateKey(rsaPrivateKey);
-    const privateKeyPem = forge.pki.privateKeyInfoToPem(privateKeyInfo);
+const certPolicyFromRequest = (certKey: CertKeyOptions): CertificatePolicy => {
+    const altNames =
+        (typeof certKey.alternativeNames !== 'undefined' && isNonEmptyArray(certKey.alternativeNames))
+        ? { dnsNames: certKey.alternativeNames }
+        : undefined;
+
+    return {
+        issuerName: 'Unknown',
+        keySize: certKey.keySize || 2048,
+        subject: [`CN=${certKey.commonName}`, certKey.subject].join(' '),
+        subjectAlternativeNames: altNames,
+        validityInMonths: 3, // 3 = 90 days
+        exportable: certKey.exportable,
+    };
+};
+
+// Generate a new certificate key in Key Vault and return the CSR
+const generateNewCertKey = async (
+    certClient: CertificateClient,
+    certRequest: CertRequest
+): Promise<string> => {
+    const createPoller = await certClient.beginCreateCertificate(
+        certRequest.azure.keyVaultCertName,
+        certPolicyFromRequest(certRequest.certKey)
+    );
+    createPoller.stopPolling();
+
+    const poller = await certClient.getCertificateOperation(certRequest.azure.keyVaultCertName);
+    const operation = poller.getOperationState().certificateOperation;
     return [
-        certBundle.certificate,
-        privateKeyPem,
-    ].join('\n\n');
+        '-----BEGIN CERTIFICATE REQUEST-----',
+        Buffer.from(operation.csr).toString('base64'),
+        '-----END CERTIFICATE REQUEST-----',
+    ].join('\n');
+};
+
+// Store the validated certificate in Key Vault
+const storeCertificate = async (
+    certClient: CertificateClient,
+    opts: AzureOptions,
+    certificate: string,
+): Promise<void> => {
+    await certClient.mergeCertificate(opts.keyVaultCertName, [Buffer.from(certificate)]);
 };
 
 // Entrypoint
 export const run = async (logger: Logger, azureCredential: TokenCredential, certRequest: CertRequest): Promise<void> => {
     const legacyAzureCredential = new AzureIdentityCredentialAdapter(azureCredential);
+    const keyVaultUrl = `https://${certRequest.azure.keyVaultName}.vault.azure.net`
+    const certClient = new CertificateClient(keyVaultUrl, azureCredential);
+    const dnsClient = new DnsManagementClient(legacyAzureCredential, certRequest.azure.subscriptionId);
 
-    logger.info(`Creating a new key and CSR for ${certRequest.csr.commonName}`);
-    const [privateKey, csr] = await acme.forge.createCsr(certRequest.csr);
+    logger.info(`Generating certificate "${certRequest.azure.keyVaultCertName}" for Key Vault ${certRequest.azure.keyVaultName}`);
+    const csr = await generateNewCertKey(certClient, certRequest);
 
-    logger.info(`Ordering a certificate for ${certRequest.csr.commonName}`);
-    const certificate = await orderCertificate(legacyAzureCredential, logger, certRequest, csr);
+    logger.info(`Ordering a certificate for "${certRequest.certKey.commonName}"`);
+    const certificate = await orderCertificate(dnsClient, logger, certRequest, csr);
 
-    logger.info(`Storing certificate "${certRequest.csr.commonName}" to Key Vault ${certRequest.azure.keyVaultName}`);
-    await storeCertificateToKeyVault(azureCredential, certRequest.azure, { privateKey, certificate });
+    logger.info(`Storing certificate for "${certRequest.azure.keyVaultCertName}" in Key Vault ${certRequest.azure.keyVaultName}`);
+    await storeCertificate(certClient, certRequest.azure, certificate);
 };

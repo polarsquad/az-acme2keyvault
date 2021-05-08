@@ -63,7 +63,7 @@ const azureFunc: AzureFunction = async (context: Context): Promise<CertRequest[]
             if (certDetails === null || isOldEnough(certDetails)) {
                 certRequests.push(certRequest);
             } else {
-                context.log.verbose(`No renewal needed for certificate "${certRequest.csr.commonName}"`)
+                context.log.verbose(`No renewal needed for certificate "${certRequest.certKey.commonName}"`)
             }
         }
     }

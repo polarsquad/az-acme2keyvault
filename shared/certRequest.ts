@@ -1,5 +1,4 @@
 import Ajv, { JTDParser } from 'ajv/dist/jtd';
-import { CsrOptions } from 'acme-client';
 
 // Options for Azure services
 export interface AzureOptions {
@@ -16,11 +15,20 @@ export interface AcmeOptions {
     acmeDirectoryUrl: string;
 }
 
+// Options for the certificate key
+export interface CertKeyOptions {
+    commonName: string;
+    subject?: string;
+    alternativeNames?: string[];
+    keySize?: number;
+    exportable?: boolean;
+}
+
 // All options in one package
 export interface CertRequest {
     azure: AzureOptions;
     acme: AcmeOptions;
-    csr: CsrOptions;
+    certKey: CertKeyOptions;
 }
 
 const ajv = new Ajv();
@@ -41,19 +49,15 @@ const jsonParser: JTDParser<CertRequest> = ajv.compileParser({
                 acmeDirectoryUrl: {type: 'string'},
             }
         },
-        csr: {
+        certKey: {
             properties: {
                 commonName: {type: 'string'},
             },
             optionalProperties: {
+                subject: {type: 'string'},
                 keySize: {type: 'int16'},
-                altNames: {elements: {type: 'string'}},
-                country: {type: 'string'},
-                state: {type: 'string'},
-                locality: {type: 'string'},
-                organization: {type: 'string'},
-                organizationUnit: {type: 'string'},
-                emailAddress: {type: 'string'},
+                alternativeNames: {elements: {type: 'string'}},
+                exportable: {type: 'boolean'}
             }
         }
     }
