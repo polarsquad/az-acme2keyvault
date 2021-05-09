@@ -11,17 +11,21 @@ import {
 import * as envConfig from '../shared/envConfig';
 
 // Config
-const certReqStorageAccount = envConfig.req('CERT_REQ_STORAGE_ACCOUNT');
+const certReqConnectionString = envConfig.opt('AzureWebJobsStorage');
+const certReqStorageAccount = envConfig.opt('CERT_REQ_STORAGE_ACCOUNT');
 const certReqContainer = envConfig.opt('CERT_REQ_CONTAINER') || 'cert-requests';
 const renewDaysThreshold = Number.parseInt(envConfig.opt('RENEW_DAYS_THRESHOLD') || '30', 10);
 const today = new Date();
 
 // Azure access
 const credential = new DefaultAzureCredential();
-const blobServiceClient = new BlobServiceClient(
-    `https://${certReqStorageAccount}.blob.core.windows.net`,
-    credential,
-);
+const blobServiceClient: BlobServiceClient =
+    typeof certReqStorageAccount === 'undefined'
+    ? BlobServiceClient.fromConnectionString(certReqConnectionString)
+    : new BlobServiceClient(
+        `https://${certReqStorageAccount}.blob.core.windows.net`,
+        credential,
+    );
 const containerClient = blobServiceClient.getContainerClient(certReqContainer);
 
 // Get all the certificate details from Azure Key Vault
