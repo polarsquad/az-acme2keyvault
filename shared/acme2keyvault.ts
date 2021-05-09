@@ -1,6 +1,6 @@
 import { Logger } from '@azure/functions'
 import * as acme from 'acme-client';
-import { AzureIdentityCredentialAdapter, ServiceClientCredentials } from '@azure/ms-rest-js';
+import { AzureIdentityCredentialAdapter } from '@azure/ms-rest-js';
 import { TokenCredential } from '@azure/identity';
 import { CertificateClient, CertificatePolicy, ArrayOneOrMore } from '@azure/keyvault-certificates';
 import { DnsManagementClient } from '@azure/arm-dns';
@@ -20,7 +20,7 @@ const azureDnsCreateChallenge = async (
     dnsClient: DnsManagementClient,
     authz: acme.Authorization,
     keyAuthorization: string,
-): Promise<any> => {
+): Promise<void> => {
     const relativeDomain = authzToRelativeDomain(opts.dnsZone, authz);
     logger.verbose(`Creating TXT record: "${relativeDomain}" = "${keyAuthorization}"`);
     await dnsClient.recordSets.createOrUpdate(
@@ -41,7 +41,7 @@ const azureDnsRemoveChallenge = async (
     opts: AzureOptions,
     dnsClient: DnsManagementClient,
     authz: acme.Authorization,
-): Promise<any> => {
+): Promise<void> => {
     const relativeDomain = authzToRelativeDomain(opts.dnsZone, authz);
     logger.verbose(`Deleting TXT record "${relativeDomain}"`);
     await dnsClient.recordSets.deleteMethod(
@@ -122,11 +122,14 @@ const orderCertificate = async (
     return await client.getCertificate(order);
 };
 
+// Runtime type check for non-empty arrays
 const isNonEmptyArray = <T extends unknown>(a: T[]): a is ArrayOneOrMore<T> => {
     return a.length > 0;
 };
 
-const certPolicyFromRequest = (certKey: CertKeyOptions): CertificatePolicy => {
+// Convert the certificate options to a certificate policy
+// that can be used for provisioning the cert in Azure Key Vault
+const certPolicyFromOptions = (certKey: CertKeyOptions): CertificatePolicy => {
     const altNames =
         (typeof certKey.alternativeNames !== 'undefined' && isNonEmptyArray(certKey.alternativeNames))
         ? { dnsNames: certKey.alternativeNames }
@@ -149,7 +152,7 @@ const generateNewCertKey = async (
 ): Promise<string> => {
     const createPoller = await certClient.beginCreateCertificate(
         certRequest.azure.keyVaultCertName,
-        certPolicyFromRequest(certRequest.certKey)
+        certPolicyFromOptions(certRequest.certKey)
     );
     createPoller.stopPolling();
 

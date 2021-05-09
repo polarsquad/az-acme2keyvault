@@ -1,12 +1,13 @@
 ﻿import * as df from 'durable-functions';
 import { AzureFunction } from '@azure/functions';
+import { CertRequest } from '../shared/certRequest';
 
 // Entrypoint
 const orchestrator: AzureFunction = df.orchestrator(function* (context) {
     const tasks = [];
 
     context.log.verbose('Fetching certificates that require a renewal');
-    const certRequests: any[] = yield context.df.callActivity('AcmeCertList');
+    const certRequests: CertRequest[] = yield context.df.callActivity('AcmeCertList');
 
     if (certRequests.length === 0) {
         context.log.verbose('No certificates need to be renewed.');
