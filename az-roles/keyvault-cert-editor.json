@@ -1,0 +1,16 @@
+{
+  "Name": "Key Vault Certificate Editor",
+  "IsCustom": true,
+  "Description": "Create, read, and update Certificates in a Key Vault",
+  "AssignableScopes": [
+    "/subscriptions/<subscription ID>"
+  ],
+  "Actions": [],
+  "NotActions": [],
+  "DataActions": [
+    "Microsoft.KeyVault/vaults/certificates/create/action",
+    "Microsoft.KeyVault/vaults/certificates/update/action",
+    "Microsoft.KeyVault/vaults/certificates/read"
+  ],
+  "NotDataActions": []
+}

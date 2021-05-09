@@ -1,0 +1,16 @@
+{
+  "Name": "DNS TXT record editor",
+  "IsCustom": true,
+  "Description": "Create, read, update, and delete TXT records on a DNS zone",
+  "AssignableScopes": [
+    "/subscriptions/<subscription ID>"
+  ],
+  "Actions": [
+    "Microsoft.Network/dnszones/TXT/read",
+    "Microsoft.Network/dnszones/TXT/write",
+    "Microsoft.Network/dnszones/TXT/delete"
+  ],
+  "NotActions": [],
+  "DataActions": [],
+  "NotDataActions": []
+}
