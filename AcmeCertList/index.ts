@@ -9,6 +9,7 @@ import {
     fromJson as certRequestFromJson,
 } from '../shared/certRequest';
 import * as envConfig from '../shared/envConfig';
+import { isOldEnough } from '../shared/cert';
 
 // Config
 const certReqConnectionString = envConfig.opt('AzureWebJobsStorage');
@@ -21,11 +22,11 @@ const today = new Date();
 const credential = new DefaultAzureCredential();
 const blobServiceClient: BlobServiceClient =
     typeof certReqStorageAccount === 'undefined'
-    ? BlobServiceClient.fromConnectionString(certReqConnectionString)
-    : new BlobServiceClient(
-        `https://${certReqStorageAccount}.blob.core.windows.net`,
-        credential,
-    );
+        ? BlobServiceClient.fromConnectionString(certReqConnectionString)
+        : new BlobServiceClient(
+            `https://${certReqStorageAccount}.blob.core.windows.net`,
+            credential,
+        );
 const containerClient = blobServiceClient.getContainerClient(certReqContainer);
 
 // Get all the certificate details from Azure Key Vault
@@ -44,12 +45,11 @@ const getCertDetails = async (context: Context, opts: AzureOptions): Promise<Key
     }
 };
 
-// Check if a cert is old enough to need a renewal
-const isOldEnough = (certDetails: KeyVaultCertificateWithPolicy): boolean => {
-    const timeUntilExpiration = certDetails.properties.expiresOn.getTime() - today.getTime();
-    const daysUntilExpiration = timeUntilExpiration / (1000 * 60 * 60 * 24);
-    return daysUntilExpiration <= renewDaysThreshold;
-}
+// Check if the certificate should be renewed
+const shouldRenewCert = (certDetails: KeyVaultCertificateWithPolicy): boolean => {
+    return certDetails.properties.enabled
+        && isOldEnough(today, certDetails.properties.expiresOn, renewDaysThreshold);
+};
 
 // Entrypoint
 const azureFunc: AzureFunction = async (context: Context): Promise<CertRequest[]> => {
@@ -62,12 +62,15 @@ const azureFunc: AzureFunction = async (context: Context): Promise<CertRequest[]
             const blobClient = containerClient.getBlobClient(blob.name);
             const buffer = await blobClient.downloadToBuffer(0);
             const certRequest = certRequestFromJson(buffer.toString());
+            const commonName = certRequest.certKey.commonName;
             const certDetails = await getCertDetails(context, certRequest.azure);
 
-            if (certDetails === null || isOldEnough(certDetails)) {
+            if (certDetails === null) {
+                context.log.verbose(`No certificate provisioned for "${commonName}`)
+            } else if (shouldRenewCert(certDetails)) {
                 certRequests.push(certRequest);
             } else {
-                context.log.verbose(`No renewal needed for certificate "${certRequest.certKey.commonName}"`)
+                context.log.verbose(`No renewal needed for certificate "${commonName}"`)
             }
         }
     }
