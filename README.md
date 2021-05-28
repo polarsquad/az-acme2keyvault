@@ -153,11 +153,13 @@ az functionapp create \
   --resource-group acme2keyvault-rg \
   --consumption-plan-location westeurope \
   --runtime node --runtime-version 14 --functions-version 3 \
-  --name acme2keyvault \
+  --name <function app name> \
   --storage-account <storage account name> \
+  --os-type Linux
   --assign-identity '[system]'
 ```
 
+The name of the function app must be globally unique in Azure Functions.
 The storage account name from the earlier step should be used here as well.
 The system identity (aka managed identity) is later used for assigning permissions to use Key Vault and DNS zones.
 
@@ -182,7 +184,7 @@ First, we need to find the principal ID of the system identity:
 
 ```
 az functionapp show \
-  --name acme2keyvault \
+  --name <function app name> \
   --resource-group acme2keyvault-rg \
   --query 'identity.principalId' \
   --output tsv
@@ -192,13 +194,13 @@ Let's create role assignments for the above principal ID:
 
 ```
 az role assignment create \
-  --role "Key Vault Certificate Editor" \
+  --role 'Key Vault Certificate Editor' \
   --assignee <principal ID> \
   --scope '/subscriptions/<subscription ID>/resourceGroups/acme2keyvaul
 t-rg/providers/Microsoft.KeyVault/vaults/<vault name>'
 
 az role assignment create \
-  --role "DNS TXT record editor" \
+  --role 'DNS TXT record editor' \
   --assignee <principal ID> \
   --scope '/subscriptions/<subscription ID>/resourceGroups/<DNS resource group>/providers/Microsoft.Network/dnszones/<DNS zone name>'
 ```
@@ -213,13 +215,15 @@ Access to the storage account is granted through the storage account shared keys
 The code can be built using the following NPM command:
 
 ```
+npm ci
+
 npm run build
 ```
 
 You can deploy the function with the [Azure Functions Core Tools](https://docs.microsoft.com/en-us/azure/azure-functions/functions-run-local#v2):
 
 ```
-func azure functionapp publish acme2keyvault
+func azure functionapp publish <function app name> --typescript
 ```
 
 Now you can upload your certificate requests to the `cert-requests` blob container you created earlier.
