@@ -4,14 +4,12 @@
       "name": "certRequestTrigger",
       "type": "blobTrigger",
       "path": "cert-requests/{certRequest}.json",
-      "connection": "AzureWebJobsStorage",
       "direction": "in"
     },
     {
       "name": "certRequest",
       "type": "blob",
       "path": "cert-requests/{certRequest}.json",
-      "connection": "AzureWebJobsStorage",
       "direction": "in"
     }
   ],

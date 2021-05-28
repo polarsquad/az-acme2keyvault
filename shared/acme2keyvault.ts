@@ -2,9 +2,20 @@ import { Logger } from '@azure/functions'
 import * as acme from 'acme-client';
 import { AzureIdentityCredentialAdapter } from '@azure/ms-rest-js';
 import { TokenCredential } from '@azure/identity';
-import { CertificateClient, CertificatePolicy, ArrayOneOrMore } from '@azure/keyvault-certificates';
+import {
+    CertificateClient,
+    CertificatePolicy,
+    ArrayOneOrMore,
+} from '@azure/keyvault-certificates';
 import { DnsManagementClient } from '@azure/arm-dns';
-import { AzureOptions, CertKeyOptions, CertRequest } from './certRequest';
+import {
+    AzureOptions,
+    CertKeyOptions,
+    CertRequest,
+    keyVaultLogStr
+} from './certRequest';
+import { RestError } from '@azure/core-http';
+import { csrBytesToPem } from './cert';
 
 // Convert the ACME authorization detail to validation domain
 // that's compatible with Azure DNS format.
@@ -132,8 +143,8 @@ const isNonEmptyArray = <T extends unknown>(a: T[]): a is ArrayOneOrMore<T> => {
 const certPolicyFromOptions = (certKey: CertKeyOptions): CertificatePolicy => {
     const altNames =
         (typeof certKey.alternativeNames !== 'undefined' && isNonEmptyArray(certKey.alternativeNames))
-        ? { dnsNames: certKey.alternativeNames }
-        : undefined;
+            ? { dnsNames: certKey.alternativeNames }
+            : undefined;
 
     return {
         issuerName: 'Unknown',
@@ -150,28 +161,25 @@ const generateNewCertKey = async (
     certClient: CertificateClient,
     certRequest: CertRequest
 ): Promise<string> => {
+    // Delete the previous certificate operation if it exists
+    try {
+        await certClient.deleteCertificateOperation(certRequest.azure.keyVaultCertName);
+    } catch (err) {
+        if (!(err instanceof RestError && err.statusCode === 404)) {
+            throw err;
+        }
+    }
+
+    // Generate a new certificate key
     const createPoller = await certClient.beginCreateCertificate(
         certRequest.azure.keyVaultCertName,
         certPolicyFromOptions(certRequest.certKey)
     );
     createPoller.stopPolling();
 
+    // Get the CSR for the new certificate key
     const poller = await certClient.getCertificateOperation(certRequest.azure.keyVaultCertName);
-    const operation = poller.getOperationState().certificateOperation;
-    return [
-        '-----BEGIN CERTIFICATE REQUEST-----',
-        Buffer.from(operation.csr).toString('base64'),
-        '-----END CERTIFICATE REQUEST-----',
-    ].join('\n');
-};
-
-// Store the validated certificate in Key Vault
-const storeCertificate = async (
-    certClient: CertificateClient,
-    opts: AzureOptions,
-    certificate: string,
-): Promise<void> => {
-    await certClient.mergeCertificate(opts.keyVaultCertName, [Buffer.from(certificate)]);
+    return csrBytesToPem(poller.getOperationState().certificateOperation.csr);
 };
 
 // Entrypoint
@@ -181,12 +189,12 @@ export const run = async (logger: Logger, azureCredential: TokenCredential, cert
     const certClient = new CertificateClient(keyVaultUrl, azureCredential);
     const dnsClient = new DnsManagementClient(legacyAzureCredential, certRequest.azure.subscriptionId);
 
-    logger.info(`Generating certificate "${certRequest.azure.keyVaultCertName}" for Key Vault ${certRequest.azure.keyVaultName}`);
+    logger.info(`Generating a certificate key ${keyVaultLogStr(certRequest.azure)}`);
     const csr = await generateNewCertKey(certClient, certRequest);
 
-    logger.info(`Ordering a certificate for "${certRequest.certKey.commonName}"`);
+    logger.info(`Ordering a certificate for ${certRequest.certKey.commonName}`);
     const certificate = await orderCertificate(dnsClient, logger, certRequest, csr);
 
-    logger.info(`Storing certificate for "${certRequest.azure.keyVaultCertName}" in Key Vault ${certRequest.azure.keyVaultName}`);
-    await storeCertificate(certClient, certRequest.azure, certificate);
+    logger.info(`Storing certificate for ${keyVaultLogStr(certRequest.azure)}`);
+    await certClient.mergeCertificate(certRequest.azure.keyVaultCertName, [Buffer.from(certificate)]);
 };
