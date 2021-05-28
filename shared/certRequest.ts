@@ -12,7 +12,7 @@ export interface AzureOptions {
 // Options for ACME directory interactions
 export interface AcmeOptions {
     contactEmail: string;
-    acmeDirectoryUrl: string;
+    directoryUrl: string;
 }
 
 // Options for the certificate key
@@ -46,7 +46,7 @@ const jsonParser: JTDParser<CertRequest> = ajv.compileParser({
         acme: {
             properties: {
                 contactEmail: {type: 'string'},
-                acmeDirectoryUrl: {type: 'string'},
+                directoryUrl: {type: 'string'},
             }
         },
         certKey: {

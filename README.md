@@ -38,7 +38,7 @@ The files must have suffix `.json` and they can use the following JSON fields:
   * `keyVaultName` (string): The name of the Key Vault where to store the TLS certificates
   * `keyVaultCertName` (string): The name of the TLS certificate in the Key Vault
 * `acme` (object): ACME/Let's Encrypt related configurations
-  * `acmeDirectoryUrl` (string): The URL of the ACME directory that signs the TLS certificate. With Let's Encrypt, typically either of these would be used:
+  * `directoryUrl` (string): The URL of the ACME directory that signs the TLS certificate. With Let's Encrypt, typically either of these would be used:
     * Staging: `https://acme-staging-v02.api.letsencrypt.org/directory`
     * Production: `https://acme-v02.api.letsencrypt.org/directory`
   * `contactEmail` (string): The contact email address to use when registering a certificate
@@ -61,7 +61,7 @@ Example:
     "keyVaultCertName": "exampleorg"
   },
   "acme": {
-    "acmeDirectoryUrl": "https://acme-staging-v02.api.letsencrypt.org/directory",
+    "directoryUrl": "https://acme-staging-v02.api.letsencrypt.org/directory",
     "contactEmail": "myemail@example.org"
   },
   "certKey": {

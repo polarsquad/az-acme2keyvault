@@ -58,7 +58,7 @@ const orderCertificate = async (
     csr: string
 ): Promise<string> => {
     const client = new acme.Client({
-        directoryUrl: certRequest.acme.acmeDirectoryUrl,
+        directoryUrl: certRequest.acme.directoryUrl,
         accountKey: await acme.forge.createPrivateKey(),
     });
 
