@@ -10,7 +10,7 @@ export interface AzureOptions {
 }
 
 export const keyVaultLogStr = (azureOpts: AzureOptions): string => {
-    return `${azureOpts.keyVaultName} in Key Vault ${azureOpts.keyVaultName}`;
+    return `${azureOpts.keyVaultCertName} in Key Vault ${azureOpts.keyVaultName}`;
 }
 
 // Options for ACME directory interactions

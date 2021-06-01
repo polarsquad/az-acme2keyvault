@@ -149,7 +149,7 @@ const certPolicyFromOptions = (certKey: CertKeyOptions): CertificatePolicy => {
     return {
         issuerName: 'Unknown',
         keySize: certKey.keySize || 2048,
-        subject: [`CN=${certKey.commonName}`, certKey.subject].join(' ').trim(),
+        subject: [`CN=${certKey.commonName}`, certKey.subject || ''].join(' ').trim(),
         subjectAlternativeNames: altNames,
         validityInMonths: 3, // 3 = 90 days
         exportable: certKey.exportable,
