@@ -6,12 +6,13 @@
       "direction": "in",
       "schedule": "0 0 9 * * 1",
       "runOnStartup": false
-    },
-    {
-      "name": "starter",
-      "type": "durableClient",
-      "direction": "in"
     }
   ],
-  "scriptFile": "../dist/AcmeRenewScheduler/index.js"
+  "scriptFile": "../dist/AcmeRenewScheduler/index.js",
+  "retry": {
+    "strategy": "exponentialBackoff",
+    "maxRetryCount": -1,
+    "minimumInterval": "00:00:30",
+    "maximumInterval": "01:00:00"
+  }
 }

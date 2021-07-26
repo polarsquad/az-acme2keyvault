@@ -20,11 +20,11 @@ When a certificate request (a JSON file) is created or updated, a function is us
 Meanwhile, another function is triggered weekly to launch renewal of certificates.
 The renewal process is coordinated as follows:
 
-1. Use a function to list all the certificates that need renewal
+1. List all the certificates that need renewal
    1. List all the certificate requests
    2. Compare the certificate requests to the certificates stored in the Key Vault
    3. Select the ones that are about to expire (default: within 30 days)
-2. For each certificate that needs to be renewed, launch the certificate generation function mentioned above.
+2. For each certificate that needs to be renewed, run the certificate generation mentioned above.
 
 ## Certificate settings
 
@@ -130,7 +130,8 @@ az storage account create \
   --name <storage account name> \
   --location westeurope \
   --resource-group acme2keyvault-rg \
-  --sku Standard_LRS
+  --sku Standard_LRS \
+  --allow-blob-public-access false
 ```
 
 Similar to the vault name, the storage account name must be globally unique in Azure Storage.
